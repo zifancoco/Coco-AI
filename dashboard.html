@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医药ETF易方达(512010) - 交易数据面板</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1923;
+            --card-bg: #1a2632;
+            --text: #e0e6ed;
+            --text-secondary: #8899aa;
+            --green: #26a69a;
+            --red: #ef5350;
+            --border: #2a3a4a;
+            --accent: #42a5f5;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 32px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-left h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .header-left .subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+            min-width: 80px;
+        }
+        .stat-item .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        .stat-item .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .stat-item .change {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .stat-item .change.up { color: var(--red); }
+        .stat-item .change.down { color: var(--green); }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            transition: all 0.3s;
+        }
+        .card:hover {
+            border-color: #3a4a5a;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 500px;
+        }
+        .chart-container.volume {
+            height: 250px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .header { padding: 16px 20px; }
+            .stats-row { gap: 16px; }
+            .stat-item .value { font-size: 16px; }
+            .chart-container { height: 350px; }
+            .chart-container.volume { height: 200px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <h1>医药ETF易方达 <span style="color:var(--text-secondary);font-weight:400;">512010.SH</span></h1>
+        <div class="subtitle" id="date-range">数据加载中...</div>
+    </div>
+    <div class="stats-row" id="stats-row">
+        <div class="stat-item">
+            <div class="label">最新价</div>
+            <div class="value" id="stat-price">--</div>
+            <div class="change" id="stat-change">--</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">最高(年)</div>
+            <div class="value" id="stat-high">--</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">最低(年)</div>
+            <div class="value" id="stat-low">--</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">平均成交量</div>
+            <div class="value" id="stat-avg-vol">--</div>
+        </div>
+    </div>
+</div>
+
+<div class="main-grid">
+    <div class="card">
+        <div class="card-title"><span class="dot"></span>K线图（日线）</div>
+        <div class="card-subtitle">包含MA5 / MA10 / MA20 均线</div>
+        <div class="chart-container" id="kline-chart"></div>
+    </div>
+    <div class="card">
+        <div class="card-title"><span class="dot" style="background:#ab47bc;"></span>成交量</div>
+        <div class="card-subtitle">单位：手（股）</div>
+        <div class="chart-container volume" id="volume-chart"></div>
+    </div>
+</div>
+
+<div class="footer">
+    数据来源：新浪财经 ｜ 数据更新至 2026-07-01 ｜ 仅供学习参考，不构成投资建议
+</div>
+
+<script>
+// ==================== 内嵌数据 ====================
+const rawData = DATA_PLACEHOLDER;
+
+// ==================== 数据处理 ====================
+const dates = rawData.map(d => d['日期']);
+const opens = rawData.map(d => d['开盘价']);
+const highs = rawData.map(d => d['最高价']);
+const lows = rawData.map(d => d['最低价']);
+const closes = rawData.map(d => d['收盘价']);
+const volumes = rawData.map(d => d['成交量']);
+
+// 计算MA均线
+function calcMA(data, period) {
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) {
+            result.push(null);
+        } else {
+            let sum = 0;
+            for (let j = i - period + 1; j <= i; j++) sum += data[j];
+            result.push(sum / period);
+        }
+    }
+    return result;
+}
+const ma5 = calcMA(closes, 5);
+const ma10 = calcMA(closes, 10);
+const ma20 = calcMA(closes, 20);
+
+// ==================== 统计面板 ====================
+const lastClose = closes[closes.length - 1];
+const prevClose = closes[closes.length - 2];
+const change = lastClose - prevClose;
+const changePct = ((change / prevClose) * 100).toFixed(2);
+const yearHigh = Math.max(...highs);
+const yearLow = Math.min(...lows);
+const avgVol = (volumes.reduce((a, b) => a + b, 0) / volumes.length);
+
+document.getElementById('date-range').textContent =
+    `交易区间：${dates[0]} 至 ${dates[dates.length - 1]} ｜ 共 ${dates.length} 个交易日`;
+document.getElementById('stat-price').textContent = lastClose.toFixed(3);
+const changeEl = document.getElementById('stat-change');
+changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(3)} (${changePct}%)`;
+changeEl.className = 'change ' + (change >= 0 ? 'up' : 'down');
+document.getElementById('stat-high').textContent = yearHigh.toFixed(3);
+document.getElementById('stat-low').textContent = yearLow.toFixed(3);
+document.getElementById('stat-avg-vol').textContent = (avgVol / 1e8).toFixed(2) + '亿';
+
+// 计算涨跌颜色映射
+const upColor = '#ef5350';
+const downColor = '#26a69a';
+
+// ==================== K线图 ====================
+const klineChart = echarts.init(document.getElementById('kline-chart'));
+const ohlcData = dates.map((d, i) => [opens[i], closes[i], lows[i], highs[i]]);
+
+klineChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        backgroundColor: 'rgba(26,38,50,0.95)',
+        borderColor: '#2a3a4a',
+        textStyle: { color: '#e0e6ed', fontSize: 13 },
+        formatter: function(params) {
+            const p = params[0];
+            if (!p) return '';
+            const i = p.dataIndex;
+            return `
+                <div style="font-weight:700;margin-bottom:6px;">${dates[i]}</div>
+                <div style="display:grid;grid-template-columns:auto auto;gap:2px 12px;font-size:13px;">
+                    <span style="color:#8899aa;">开盘：</span><span>${opens[i].toFixed(3)}</span>
+                    <span style="color:#8899aa;">收盘：</span><span style="color:${closes[i] >= opens[i] ? upColor : downColor}">${closes[i].toFixed(3)}</span>
+                    <span style="color:#8899aa;">最高：</span><span>${highs[i].toFixed(3)}</span>
+                    <span style="color:#8899aa;">最低：</span><span>${lows[i].toFixed(3)}</span>
+                    <span style="color:#8899aa;">成交量：</span><span>${(volumes[i] / 1e8).toFixed(2)}亿</span>
+                </div>
+            `;
+        }
+    },
+    grid: { left: '10%', right: '8%', top: 30, bottom: 30 },
+    xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { lineStyle: { color: '#2a3a4a' } },
+        axisTick: { show: false },
+        axisLabel: {
+            color: '#8899aa',
+            fontSize: 11,
+            formatter: function(v) { return v.substring(5); } // MM-DD
+        },
+        splitLine: { show: false }
+    },
+    yAxis: {
+        type: 'value',
+        scale: true,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: '#8899aa', fontSize: 11, formatter: v => v.toFixed(3) },
+        splitLine: { lineStyle: { color: '#1e2d3d', type: 'dashed' } },
+        position: 'right'
+    },
+    series: [
+        {
+            name: 'K线',
+            type: 'candlestick',
+            data: ohlcData,
+            itemStyle: {
+                color: upColor,
+                color0: downColor,
+                borderColor: upColor,
+                borderColor0: downColor
+            }
+        },
+        {
+            name: 'MA5', type: 'line', data: ma5, smooth: true,
+            lineStyle: { width: 1.5, color: '#fdd835' },
+            symbol: 'none'
+        },
+        {
+            name: 'MA10', type: 'line', data: ma10, smooth: true,
+            lineStyle: { width: 1.5, color: '#42a5f5' },
+            symbol: 'none'
+        },
+        {
+            name: 'MA20', type: 'line', data: ma20, smooth: true,
+            lineStyle: { width: 1.5, color: '#ab47bc' },
+            symbol: 'none'
+        }
+    ]
+});
+
+// ==================== 成交量图 ====================
+const volumeChart = echarts.init(document.getElementById('volume-chart'));
+const volColors = dates.map((d, i) => closes[i] >= opens[i] ? upColor : downColor);
+
+volumeChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(26,38,50,0.95)',
+        borderColor: '#2a3a4a',
+        textStyle: { color: '#e0e6ed', fontSize: 13 },
+        formatter: function(params) {
+            const p = params[0];
+            if (!p) return '';
+            const i = p.dataIndex;
+            return `<div style="font-weight:700;">${dates[i]}</div>
+                    <div>成交量：<b>${(volumes[i] / 1e8).toFixed(2)}亿</b></div>`;
+        }
+    },
+    grid: { left: '10%', right: '8%', top: 20, bottom: 20 },
+    xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { lineStyle: { color: '#2a3a4a' } },
+        axisTick: { show: false },
+        axisLabel: {
+            color: '#8899aa',
+            fontSize: 11,
+            formatter: function(v) { return v.substring(5); }
+        },
+        splitLine: { show: false }
+    },
+    yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+            color: '#8899aa',
+            fontSize: 11,
+            formatter: function(v) { return (v / 1e8).toFixed(1) + '亿'; }
+        },
+        splitLine: { lineStyle: { color: '#1e2d3d', type: 'dashed' } },
+        position: 'right'
+    },
+    series: [{
+        type: 'bar',
+        data: volumes,
+        itemStyle: {
+            color: function(params) {
+                const i = params.dataIndex;
+                return closes[i] >= opens[i] ? upColor + '99' : downColor + '99';
+            },
+            borderColor: function(params) {
+                const i = params.dataIndex;
+                return closes[i] >= opens[i] ? upColor : downColor;
+            },
+            borderWidth: 0.5,
+            borderRadius: [1, 1, 0, 0]
+        }
+    }]
+});
+
+// ==================== 联动 ====================
+klineChart.group = 'etf-group';
+volumeChart.group = 'etf-group';
+echarts.connect('etf-group');
+
+// 响应式
+window.addEventListener('resize', () => {
+    klineChart.resize();
+    volumeChart.resize();
+});
+</script>
+
+</body>
+</html>
